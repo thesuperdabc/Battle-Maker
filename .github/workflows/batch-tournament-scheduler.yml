@@ -126,21 +126,12 @@ jobs:
           yarn batch:create
         fi
     
-    - name: Commit updated state
-      if: steps.batch_status.outputs.should_run == 'true' && github.event.inputs.test_mode != 'true'
+    - name: Log state update
+      if: steps.batch_status.outputs.should_run == 'true'
       run: |
-        git config --local user.email "batch-scheduler@github.com"
-        git config --local user.name "Batch Tournament Scheduler"
-        
-        if [ -n "$(git status --porcelain config/batch-tournament.state.json)" ]; then
-          echo "Committing batch state update..."
-          git add config/batch-tournament.state.json
-          git commit -m "Auto-update: Batch tournament state updated [skip ci]"
-          git push
-          echo "Batch state committed successfully"
-        else
-          echo "No batch state changes to commit"
-        fi
+        echo "Batch state updated locally"
+        echo "Current state:"
+        cat config/batch-tournament.state.json
     
     - name: Log batch status
       if: always()
