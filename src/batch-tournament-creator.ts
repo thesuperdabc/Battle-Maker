@@ -87,9 +87,11 @@ async function createTeamBattle(params: {
     rated: params.rated ? 'true' : 'false',
     variant: params.variant,
     startDate: params.startDateISO,
-    teamBattleByTeam: params.hostTeamId,
     nbLeaders: '20'
   });
+  
+  // Add team battle parameters separately
+  body.append('teamBattleByTeam', params.hostTeamId);
 
   const invitedTeams = params.teams.filter((t) => t && t !== params.hostTeamId);
   invitedTeams.forEach((t) => body.append('teams[]', t));
@@ -108,14 +110,11 @@ async function createTeamBattle(params: {
     console.log(`Team ID: ${params.hostTeamId}`);
     console.log(`Authorization header: Bearer ${params.token.substring(0, 10)}...`);
     
-    // Add teamBattleByTeam to the body for team tournaments
-    body.append('teamBattleByTeam', params.hostTeamId);
-    
-    // Add all teams to the battle
-    const allTeams = [params.hostTeamId, ...invitedTeams];
-    allTeams.forEach((teamId) => {
-      body.append('teamBattleTeams', teamId);
-    });
+    // Debug: Log the request body
+    console.log('Request body parameters:');
+    for (const [key, value] of body.entries()) {
+      console.log(`  ${key}: ${value}`);
+    }
     
     const res = await fetch(apiUrl, {
       method: 'POST',
@@ -289,14 +288,14 @@ async function main() {
     // Load configuration
     const config: BatchTournamentConfig = {
       server: "https://lichess.org",
-      hostTeamId: "rare",
+      hostTeamId: "nimortexter",
       timezone: "UTC",
       minutes: 720, // 12 hours
       clockTime: 3,
       clockIncrement: 0,
       rated: true,
       variant: "standard",
-      teams: ["nimortexter"],
+      teams: ["nimortexter", "darkonteams", "tekio"],
       dryRun: process.env.DRY_RUN === '1' || process.env.DRY_RUN === 'true'
     };
 
