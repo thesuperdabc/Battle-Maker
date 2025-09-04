@@ -296,7 +296,7 @@ async function main() {
       clockIncrement: 0,
       rated: true,
       variant: "standard",
-      teams: ["rare", "darkonteams", "tekio"],
+      teams: ["nimortexter"],
       dryRun: process.env.DRY_RUN === '1' || process.env.DRY_RUN === 'true'
     };
 
