@@ -101,12 +101,16 @@ async function createTeamBattle(params: {
   }
 
   try {
+    console.log(`Making request to: ${params.server}/api/team/${params.hostTeamId}/arena`);
+    console.log(`Authorization header: Bearer ${params.token.substring(0, 10)}...`);
+    
     const res = await fetch(`${params.server}/api/team/${params.hostTeamId}/arena`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${params.token}`,
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json',
+        'User-Agent': 'LMAO-Teamfights-Creator/1.0'
       },
       body,
     });
