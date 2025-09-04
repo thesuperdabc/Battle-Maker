@@ -38,7 +38,7 @@ function createTournamentDate(year: number, month: number, day: number, hour: nu
 }
 
 function buildTournamentName(dayNum: number, type: 'Day' | 'Night'): string {
-  return `LMAO ${type} '${dayNum}' Team Battle`;
+  return `LMAO ${type} '${dayNum}'`;
 }
 
 function buildDescription(dayNum: number, type: 'Day' | 'Night'): string {
@@ -88,6 +88,7 @@ async function createTeamBattle(params: {
     variant: params.variant,
     startDate: params.startDateISO,
     hostTeamId: params.hostTeamId,
+    nbLeaders: '20'
   });
 
   const invitedTeams = params.teams.filter((t) => t && t !== params.hostTeamId);
@@ -109,6 +110,12 @@ async function createTeamBattle(params: {
     
     // Add teamBattleByTeam to the body for team tournaments
     body.append('teamBattleByTeam', params.hostTeamId);
+    
+    // Add all teams to the battle
+    const allTeams = [params.hostTeamId, ...invitedTeams];
+    allTeams.forEach((teamId) => {
+      body.append('teamBattleTeams', teamId);
+    });
     
     const res = await fetch(apiUrl, {
       method: 'POST',
@@ -165,11 +172,11 @@ function generateTournamentSchedule(startDayNum: number, startDate: Date): Array
       type: 'Day' as const
     });
 
-    // Night tournament at 19:00 UTC
+    // Night tournament at 18:58 UTC (6:58 PM)
     tournaments.push({
       name: buildTournamentName(currentDayNum, 'Night'),
       description: buildDescription(currentDayNum, 'Night'),
-      startDateISO: createTournamentDate(year, month, day, 19, 0),
+      startDateISO: createTournamentDate(year, month, day, 18, 58),
       dayNum: currentDayNum,
       type: 'Night' as const
     });
@@ -261,7 +268,7 @@ async function main() {
     } catch (error) {
       console.warn(`Could not read ${stateFilePath}, initializing with default state.`);
       state = {
-        lastTournamentDayNum: 24,
+        lastTournamentDayNum: 23,
         currentBatch: 0,
         batchStartTime: "",
         lastBatchCompletionTime: "",
