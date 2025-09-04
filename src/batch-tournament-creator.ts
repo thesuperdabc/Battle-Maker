@@ -87,7 +87,7 @@ async function createTeamBattle(params: {
     rated: params.rated ? 'true' : 'false',
     variant: params.variant,
     startDate: params.startDateISO,
-    hostTeamId: params.hostTeamId,
+    teamBattleByTeam: params.hostTeamId,
     nbLeaders: '20'
   });
 
@@ -154,32 +154,72 @@ function generateTournamentSchedule(startDayNum: number, startDate: Date): Array
 }> {
   const tournaments = [];
   
-  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-    const currentDayNum = startDayNum + dayOffset;
-    const targetDate = new Date(startDate);
-    targetDate.setUTCDate(targetDate.getUTCDate() + dayOffset);
-    
-    const year = targetDate.getUTCFullYear();
-    const month = targetDate.getUTCMonth() + 1;
-    const day = targetDate.getUTCDate();
-
-    // Day tournament at 7:00 UTC
+  // Special case: Start with Night 24 on Sep 7, 2025 at 18:58 UTC
+  if (startDayNum === 24) {
     tournaments.push({
-      name: buildTournamentName(currentDayNum, 'Day'),
-      description: buildDescription(currentDayNum, 'Day'),
-      startDateISO: createTournamentDate(year, month, day, 7, 0),
-      dayNum: currentDayNum,
-      type: 'Day' as const
-    });
-
-    // Night tournament at 18:58 UTC (6:58 PM)
-    tournaments.push({
-      name: buildTournamentName(currentDayNum, 'Night'),
-      description: buildDescription(currentDayNum, 'Night'),
-      startDateISO: createTournamentDate(year, month, day, 18, 58),
-      dayNum: currentDayNum,
+      name: buildTournamentName(24, 'Night'),
+      description: buildDescription(24, 'Night'),
+      startDateISO: createTournamentDate(2025, 9, 7, 18, 58), // Sep 7, 2025 at 6:58 PM UTC
+      dayNum: 24,
       type: 'Night' as const
     });
+    
+    // Then continue with Day 25, Night 25, etc.
+    for (let dayOffset = 1; dayOffset < 7; dayOffset++) {
+      const currentDayNum = 24 + dayOffset;
+      const targetDate = new Date(2025, 8, 7 + dayOffset); // Sep 8, 9, 10, etc.
+      
+      const year = targetDate.getUTCFullYear();
+      const month = targetDate.getUTCMonth() + 1;
+      const day = targetDate.getUTCDate();
+
+      // Day tournament at 7:00 UTC
+      tournaments.push({
+        name: buildTournamentName(currentDayNum, 'Day'),
+        description: buildDescription(currentDayNum, 'Day'),
+        startDateISO: createTournamentDate(year, month, day, 7, 0),
+        dayNum: currentDayNum,
+        type: 'Day' as const
+      });
+
+      // Night tournament at 18:58 UTC (6:58 PM)
+      tournaments.push({
+        name: buildTournamentName(currentDayNum, 'Night'),
+        description: buildDescription(currentDayNum, 'Night'),
+        startDateISO: createTournamentDate(year, month, day, 18, 58),
+        dayNum: currentDayNum,
+        type: 'Night' as const
+      });
+    }
+  } else {
+    // Normal schedule for future cycles
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const currentDayNum = startDayNum + dayOffset;
+      const targetDate = new Date(startDate);
+      targetDate.setUTCDate(targetDate.getUTCDate() + dayOffset);
+      
+      const year = targetDate.getUTCFullYear();
+      const month = targetDate.getUTCMonth() + 1;
+      const day = targetDate.getUTCDate();
+
+      // Day tournament at 7:00 UTC
+      tournaments.push({
+        name: buildTournamentName(currentDayNum, 'Day'),
+        description: buildDescription(currentDayNum, 'Day'),
+        startDateISO: createTournamentDate(year, month, day, 7, 0),
+        dayNum: currentDayNum,
+        type: 'Day' as const
+      });
+
+      // Night tournament at 18:58 UTC (6:58 PM)
+      tournaments.push({
+        name: buildTournamentName(currentDayNum, 'Night'),
+        description: buildDescription(currentDayNum, 'Night'),
+        startDateISO: createTournamentDate(year, month, day, 18, 58),
+        dayNum: currentDayNum,
+        type: 'Night' as const
+      });
+    }
   }
   
   return tournaments;
