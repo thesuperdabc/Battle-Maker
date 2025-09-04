@@ -1,0 +1,9 @@
+{
+  "tournamentDurationHours": 12,
+  "gapMinutes": 2,
+  "dayStartHour": 6,
+  "nightStartHour": 18,
+  "creationMinute": 58,
+  "autoSchedule": true,
+  "daysAhead": 2
+}

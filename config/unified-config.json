@@ -1,0 +1,44 @@
+{
+  "server": "https://lichess.org",
+  "oauthToken": "",
+
+  "tournament": {
+    "hostTeamId": "rare",
+    "timezone": "UTC",
+    "minutes": 720,
+    "clockTime": 3,
+    "clockIncrement": 0,
+    "rated": true,
+    "variant": "standard",
+    "preCreationLeadMinutes": 3,
+    "dryRun": false
+  },
+
+  "naming": {
+    "dayTemplate": "LMAO Day '{DAY_NUM}' Team Battle",
+    "nightTemplate": "LMAO Night '{DAY_NUM}' Team Battle",
+    "descriptionTemplate": "Welcome to the LMAO {DAY_OR_NIGHT} '{DAY_NUM}' Team Battle! Have fun and fair play!"
+  },
+
+  "schedule": {
+    "tournamentDurationHours": 12,
+    "gapMinutes": 2,
+    "dayStartHour": 6,
+    "nightStartHour": 18,
+    "creationMinute": 58,
+    "autoSchedule": true,
+    "daysAhead": 2
+  },
+
+  "teams": [
+    "rare",
+    "darkonteams",
+    "tekio"
+  ],
+
+  "automation": {
+    "rateLimitDelayMs": 10000,
+    "maxRetries": 3,
+    "retryDelayMs": 30000
+  }
+}

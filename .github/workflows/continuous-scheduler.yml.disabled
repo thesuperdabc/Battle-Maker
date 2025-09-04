@@ -1,0 +1,167 @@
+name: Tournament Scheduler
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Test run'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  schedule-tournaments:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Check tournament timing
+      id: timing
+      run: |
+        node -e "
+        const fs = require('fs');
+        
+        try {
+          const schedule = JSON.parse(fs.readFileSync('config/schedule.json', 'utf8'));
+          const cfg = JSON.parse(fs.readFileSync('config/teamfight.config.json', 'utf8'));
+          const state = JSON.parse(fs.readFileSync('config/auto-teamfight.state.json', 'utf8'));
+          
+          const now = new Date();
+          console.log('Current UTC time:', now.toISOString());
+          
+          // Get current time in target timezone
+          const fmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: cfg.timezone,
+            hour12: false,
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric'
+          });
+          const parts = fmt.formatToParts(now).reduce((acc, p) => {
+            acc[p.type] = p.value;
+            return acc;
+          }, {});
+          
+          const currentHour = parseInt(parts.hour);
+          const currentMinute = parseInt(parts.minute);
+          const currentTime = currentHour * 60 + currentMinute;
+          
+          console.log('Local time (' + cfg.timezone + '):', parts.hour + ':' + parts.minute);
+          console.log('Current state:', JSON.stringify(state, null, 2));
+          
+          // Calculate when to create tournaments (X minutes before start)
+          const gapMinutes = schedule.gapMinutes || 2;
+          const dayCreateTime = (schedule.dayStartHour * 60) - gapMinutes;
+          const nightCreateTime = (schedule.nightStartHour * 60) - gapMinutes;
+          
+          console.log('Day tournament creates at:', Math.floor(dayCreateTime/60) + ':' + String(dayCreateTime%60).padStart(2,'0'));
+          console.log('Night tournament creates at:', Math.floor(nightCreateTime/60) + ':' + String(nightCreateTime%60).padStart(2,'0'));
+          
+          // Check if we should create tournaments now
+          const tolerance = 15; // 15 minute window
+          const shouldCreateDay = Math.abs(currentTime - dayCreateTime) <= tolerance;
+          const shouldCreateNight = Math.abs(currentTime - nightCreateTime) <= tolerance;
+          const shouldCreate = shouldCreateDay || shouldCreateNight;
+          
+          console.log('Should create tournaments:', shouldCreate);
+          console.log('Day create window:', shouldCreateDay);
+          console.log('Night create window:', shouldCreateNight);
+          
+          // Calculate next tournament number
+          let nextDayNum = state.lastTournamentDayNum;
+          if (shouldCreateDay) {
+            nextDayNum = state.lastTournamentDayNum + 1;
+          }
+          
+          console.log('Next tournament number:', nextDayNum);
+          
+          console.log('::set-output name=should_create::' + shouldCreate);
+          console.log('::set-output name=next_day_num::' + nextDayNum);
+          console.log('::set-output name=create_type::' + (shouldCreateDay ? 'day' : shouldCreateNight ? 'night' : 'none'));
+          
+        } catch (error) {
+          console.error('Error checking timing:', error);
+          console.log('::set-output name=should_create::false');
+        }
+        "
+    
+    - name: Create tournaments if needed
+      if: steps.timing.outputs.should_create == 'true'
+      env:
+        OAUTH_TOKEN: ${{ secrets.LICHESS_OAUTH_TOKEN }}
+        DRY_RUN: ${{ github.event.inputs.test_mode }}
+      run: |
+        echo "Creating tournaments for Day ${{ steps.timing.outputs.next_day_num }}"
+        echo "Type: ${{ steps.timing.outputs.create_type }}"
+        echo "Time: $(date)"
+        
+        if [ "$DRY_RUN" = "true" ]; then
+          echo "Test mode - no real tournaments created"
+          yarn create:simple:test
+        else
+          echo "Creating REAL tournaments"
+          yarn create:simple
+        fi
+    
+    - name: Commit updated state
+      if: steps.timing.outputs.should_create == 'true' && github.event.inputs.debug_mode != 'true'
+      run: |
+        git config --local user.email "scheduler@github.com"
+        git config --local user.name "Tournament Scheduler"
+        
+        if [ -n "$(git status --porcelain config/auto-teamfight.state.json)" ]; then
+          echo "Committing state update..."
+          git add config/auto-teamfight.state.json
+          git commit -m "Auto-update: Created tournaments for Day ${{ steps.timing.outputs.next_day_num }} [skip ci]"
+          git push
+          echo "State committed successfully"
+        else
+          echo "No state changes to commit"
+        fi
+    
+    - name: Log current status
+      if: always()
+      run: |
+        echo "=== TOURNAMENT STATUS REPORT ==="
+        echo "Run time: $(date)"
+        echo "Should create: ${{ steps.timing.outputs.should_create }}"
+        echo "Next day number: ${{ steps.timing.outputs.next_day_num }}"
+        echo "Creation type: ${{ steps.timing.outputs.create_type }}"
+        echo ""
+        echo "Current configuration:"
+        cat config/schedule.json
+        echo ""
+        echo "Current state:"
+        cat config/auto-teamfight.state.json
+        echo ""
+        echo "Teams:"
+        cat config/teamfight.teams.json
+    
+    - name: Upload execution logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: scheduler-logs-${{ github.run_number }}
+        path: |
+          config/
+        retention-days: 7

@@ -1,0 +1,168 @@
+name: Batch Tournament Scheduler
+
+on:
+  schedule:
+    # Check every 5 hours for batch processing
+    - cron: '0 */5 * * *'
+  workflow_dispatch:
+    inputs:
+      force_start:
+        description: 'Force start new 7-day cycle'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      test_mode:
+        description: 'Test run (dry run)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  batch-tournaments:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Check batch status
+      id: batch_status
+      run: |
+        node -e "
+        const fs = require('fs');
+        
+        try {
+          const state = JSON.parse(fs.readFileSync('config/batch-tournament.state.json', 'utf8'));
+          const now = new Date();
+          
+          console.log('Current UTC time:', now.toISOString());
+          console.log('Current batch state:', JSON.stringify(state, null, 2));
+          
+          let shouldRun = false;
+          let reason = 'No action needed';
+          
+          // Force start if requested
+          if ('${{ github.event.inputs.force_start }}' === 'true') {
+            shouldRun = true;
+            reason = 'Force start requested';
+          }
+          // Check if we should start new cycle (7 days passed)
+          else if (!state.isRunning && (!state.lastBatchCompletionTime || 
+            (now.getTime() - new Date(state.lastBatchCompletionTime).getTime()) >= (7 * 24 * 60 * 60 * 1000))) {
+            shouldRun = true;
+            reason = 'Starting new 7-day cycle';
+          }
+          // Check if current batch should run (5 hours passed)
+          else if (state.isRunning && state.batchStartTime) {
+            const timeSinceStart = now.getTime() - new Date(state.batchStartTime).getTime();
+            const expectedBatch = Math.floor(timeSinceStart / (5 * 60 * 60 * 1000)) + 1;
+            
+            if (expectedBatch >= state.currentBatch && state.currentBatch <= 4) {
+              shouldRun = true;
+              reason = 'Time for batch ' + state.currentBatch;
+            } else if (state.currentBatch > 4) {
+              reason = 'All batches completed, waiting for next cycle';
+            } else {
+              reason = 'Waiting for next batch time';
+            }
+          }
+          
+          console.log('Should run:', shouldRun);
+          console.log('Reason:', reason);
+          
+          // Set outputs using environment files
+          const outputFile = process.env.GITHUB_OUTPUT;
+          if (outputFile) {
+            fs.appendFileSync(outputFile, 'should_run=' + shouldRun + '\n');
+            fs.appendFileSync(outputFile, 'reason=' + reason + '\n');
+            fs.appendFileSync(outputFile, 'current_batch=' + state.currentBatch + '\n');
+            fs.appendFileSync(outputFile, 'is_running=' + state.isRunning + '\n');
+          }
+          
+        } catch (error) {
+          console.error('Error checking batch status:', error);
+          const outputFile = process.env.GITHUB_OUTPUT;
+          if (outputFile) {
+            fs.appendFileSync(outputFile, 'should_run=false\n');
+            fs.appendFileSync(outputFile, 'reason=Error checking status\n');
+          }
+        }
+        "
+    
+    - name: Create batch tournaments
+      if: steps.batch_status.outputs.should_run == 'true'
+      env:
+        OAUTH_TOKEN: ${{ secrets.LICHESS_OAUTH_TOKEN }}
+        DRY_RUN: ${{ github.event.inputs.test_mode }}
+      run: |
+        echo "Creating batch tournaments"
+        echo "Reason: ${{ steps.batch_status.outputs.reason }}"
+        echo "Current batch: ${{ steps.batch_status.outputs.current_batch }}"
+        echo "Is running: ${{ steps.batch_status.outputs.is_running }}"
+        echo "Time: $(date)"
+        
+        if [ "$DRY_RUN" = "true" ]; then
+          echo "Test mode - no real tournaments created"
+          DRY_RUN=1 yarn batch:create
+        else
+          echo "Creating REAL batch tournaments"
+          yarn batch:create
+        fi
+    
+    - name: Commit updated state
+      if: steps.batch_status.outputs.should_run == 'true' && github.event.inputs.test_mode != 'true'
+      run: |
+        git config --local user.email "batch-scheduler@github.com"
+        git config --local user.name "Batch Tournament Scheduler"
+        
+        if [ -n "$(git status --porcelain config/batch-tournament.state.json)" ]; then
+          echo "Committing batch state update..."
+          git add config/batch-tournament.state.json
+          git commit -m "Auto-update: Batch tournament state updated [skip ci]"
+          git push
+          echo "Batch state committed successfully"
+        else
+          echo "No batch state changes to commit"
+        fi
+    
+    - name: Log batch status
+      if: always()
+      run: |
+        echo "=== BATCH TOURNAMENT STATUS REPORT ==="
+        echo "Run time: $(date)"
+        echo "Should run: ${{ steps.batch_status.outputs.should_run }}"
+        echo "Reason: ${{ steps.batch_status.outputs.reason }}"
+        echo "Current batch: ${{ steps.batch_status.outputs.current_batch }}"
+        echo "Is running: ${{ steps.batch_status.outputs.is_running }}"
+        echo ""
+        echo "Current batch state:"
+        cat config/batch-tournament.state.json
+        echo ""
+        echo "Teams:"
+        cat config/teamfight.teams.json
+    
+    - name: Upload execution logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: batch-scheduler-logs-${{ github.run_number }}
+        path: |
+          config/
+        retention-days: 7
