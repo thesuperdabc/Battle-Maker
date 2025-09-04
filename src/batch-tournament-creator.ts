@@ -86,12 +86,12 @@ async function createTeamBattle(params: {
     minutes: String(params.minutes),
     rated: params.rated ? 'true' : 'false',
     variant: params.variant,
-    startDate: params.startDateISO,
-    nbLeaders: '20'
+    startDate: params.startDateISO
   });
   
   // Add team battle parameters separately
   body.append('teamBattleByTeam', params.hostTeamId);
+  body.append('teamBattleNbLeaders', '20');
 
   const invitedTeams = params.teams.filter((t) => t && t !== params.hostTeamId);
   invitedTeams.forEach((t) => body.append('teams[]', t));
@@ -158,7 +158,7 @@ function generateTournamentSchedule(startDayNum: number, startDate: Date): Array
     tournaments.push({
       name: buildTournamentName(24, 'Night'),
       description: buildDescription(24, 'Night'),
-      startDateISO: createTournamentDate(2025, 9, 7, 18, 58), // Sep 7, 2025 at 6:58 PM UTC
+      startDateISO: createTournamentDate(2025, 9, 7, 19, 0), // Sep 7, 2025 at 7:00 PM UTC
       dayNum: 24,
       type: 'Night' as const
     });
@@ -181,11 +181,11 @@ function generateTournamentSchedule(startDayNum: number, startDate: Date): Array
         type: 'Day' as const
       });
 
-      // Night tournament at 18:58 UTC (6:58 PM)
+      // Night tournament at 19:00 UTC (7:00 PM)
       tournaments.push({
         name: buildTournamentName(currentDayNum, 'Night'),
         description: buildDescription(currentDayNum, 'Night'),
-        startDateISO: createTournamentDate(year, month, day, 18, 58),
+        startDateISO: createTournamentDate(year, month, day, 19, 0),
         dayNum: currentDayNum,
         type: 'Night' as const
       });
@@ -210,11 +210,11 @@ function generateTournamentSchedule(startDayNum: number, startDate: Date): Array
         type: 'Day' as const
       });
 
-      // Night tournament at 18:58 UTC (6:58 PM)
+      // Night tournament at 19:00 UTC (7:00 PM)
       tournaments.push({
         name: buildTournamentName(currentDayNum, 'Night'),
         description: buildDescription(currentDayNum, 'Night'),
-        startDateISO: createTournamentDate(year, month, day, 18, 58),
+        startDateISO: createTournamentDate(year, month, day, 19, 0),
         dayNum: currentDayNum,
         type: 'Night' as const
       });
@@ -288,14 +288,14 @@ async function main() {
     // Load configuration
     const config: BatchTournamentConfig = {
       server: "https://lichess.org",
-      hostTeamId: "nimortexter",
+      hostTeamId: "hyperclowntea",
       timezone: "UTC",
       minutes: 720, // 12 hours
       clockTime: 3,
       clockIncrement: 0,
       rated: true,
       variant: "standard",
-      teams: ["nimortexter", "darkonteams", "tekio"],
+      teams: ["hyperclowntea"],
       dryRun: process.env.DRY_RUN === '1' || process.env.DRY_RUN === 'true'
     };
 
