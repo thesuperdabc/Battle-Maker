@@ -101,10 +101,16 @@ async function createTeamBattle(params: {
   }
 
   try {
-    console.log(`Making request to: ${params.server}/api/team/${params.hostTeamId}/arena`);
+    // Try the correct Lichess API endpoint for creating team tournaments
+    const apiUrl = `${params.server}/api/tournament`;
+    console.log(`Making request to: ${apiUrl}`);
+    console.log(`Team ID: ${params.hostTeamId}`);
     console.log(`Authorization header: Bearer ${params.token.substring(0, 10)}...`);
     
-    const res = await fetch(`${params.server}/api/team/${params.hostTeamId}/arena`, {
+    // Add teamBattleByTeam to the body for team tournaments
+    body.append('teamBattleByTeam', params.hostTeamId);
+    
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${params.token}`,
